@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:recombee_client/src/exceptions/recombee_response_exception.dart';
 
 import 'requests/recombee_request.dart';
 
@@ -10,8 +12,6 @@ class RecombeeClient {
   late String _publicToken;
   late String _baseUri;
   late bool _useHttps;
-
-  late http.Client _client;
 
   final Map<String, String> _headers = {
     'Accept': 'application/json',
@@ -28,42 +28,49 @@ class RecombeeClient {
     _useHttps = useHttps;
 
     _baseUri = 'client-rapi.recombee.com';
-
-    _client = http.Client();
   }
 
-  // Dont forget to close the connection after using it.
-  void close() {
-    _client.close();
-  }
+  Future<String> send(RecombeeRequest request) async {
+    try {
+      final signedUrl = signUrl(request.path);
+      final url = ((_useHttps) ? 'https://' : 'http://') + _baseUri + signedUrl;
 
-  Future<bool> send(RecombeeRequest request) async {
-    final signedUrl = signUrl(request.path);
-    final url = ((_useHttps) ? 'https://' : 'http://') + _baseUri + signedUrl;
+      late Future<http.Response> callRequest;
 
-    late Future<http.Response> callRequest;
+      switch (request.method) {
+        case 'POST':
+          callRequest = http.post(
+            Uri.parse(url),
+            headers: _headers,
+            body: jsonEncode(request.requestBody()),
+          );
+          break;
+        default:
+          callRequest = http.get(
+            Uri.parse(url),
+            headers: _headers,
+          );
+      }
 
-    switch (request.method) {
-      case 'POST':
-        callRequest = _client.post(
-          Uri.parse(url),
-          headers: _headers,
-          body: jsonEncode(request.requestBody()),
+      final response = await callRequest;
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        final responseBody = jsonDecode(response.body);
+
+        throw RecombeResponseException(
+          message: responseBody['message'],
+          code: response.statusCode,
+          stackTrace: StackTrace.current,
         );
-        break;
-      default:
-        callRequest = _client.get(
-          Uri.parse(url),
-          headers: _headers,
-        );
-    }
-
-    final response = await callRequest;
-
-    if (response.statusCode == 200) {
-      return true;
-    } else {
-      return false;
+      }
+    } on SocketException catch (error, stackTrace) {
+      throw RecombeResponseException(
+        message: error.osError?.message ?? error.message,
+        code: error.osError?.errorCode ?? 0,
+        stackTrace: stackTrace,
+      );
     }
   }
 

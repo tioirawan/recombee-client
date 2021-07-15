@@ -7,12 +7,13 @@ void main() async {
     useHttps: true,
   );
 
-  final request1 = AddDetailView(userId: 10, itemId: 1);
-  print(await client.send(request1));
+  try {
+    final request1 = AddDetailView(userId: 10, itemId: 1);
+    print(await client.send(request1));
 
-  final request2 = AddCartAddition(userId: 10, itemId: 1);
-  print(await client.send(request2));
-
-  // Makesure to always close the client
-  client.close();
+    final request2 = AddCartAddition(userId: 10, itemId: 1);
+    print(await client.send(request2));
+  } on RecombeResponseException catch (e) {
+    print(e.toString());
+  }
 }
