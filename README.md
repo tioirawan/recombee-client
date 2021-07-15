@@ -1,4 +1,6 @@
-Unofficial Recombee Dart & Flutter Client
+# Recombee Client
+
+an **unofficial** Recombee Dart & Flutter Client
 
 ## Usage
 
